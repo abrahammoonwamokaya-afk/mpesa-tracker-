@@ -1,115 +1,133 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>M-Pesa <!DOCTYPE html>
-<html>
-<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>M-Pesa Tracker</title>
 <style>
-body{font-family:Arial;background:#f2f2f2;padding:15px}
-.box{background:white;padding:15px;border-radius:12px;max-width:450px;margin:auto;box-shadow:0 2px 10px #ccc}
-h2{color:#4CAF50;text-align:center}
-input,textarea,button{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:1px solid #ccc;font-size:16px;box-sizing:border-box}
-button{background:#4CAF50;color:white;border:none;font-weight:bold}
-.item{background:#f9f9f9;padding:10px;border-radius:8px;margin-top:8px;display:flex;justify-content:space-between}
-.del{background:#ff4444;padding:5px 10px;width:auto}
-.small{font-size:13px;color:#666}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f6f4;font-family:Arial,sans-serif;color:#17231d}
+header{background:#087c45;color:white;padding:24px 18px;border-radius:0 0 22px 22px}
+header h2{margin:0 0 7px}
+header p{margin:0;opacity:.85}
+main{padding:16px}
+.card{background:white;padding:17px;border-radius:15px;margin-bottom:14px;box-shadow:0 2px 8px #0000000a}
+.balance{background:#087c45;color:white}
+.amount{font-size:28px;font-weight:bold;margin-top:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.small{font-size:13px;color:#68766e}
+.value{font-size:21px;font-weight:bold;margin-top:8px}
+select,input{width:100%;padding:13px;border:1px solid #dce4de;border-radius:9px;margin:7px 0;font-size:15px;background:white}
+button{background:#087c45;color:white;border:0;padding:14px;border-radius:9px;width:100%;font-size:16px;font-weight:bold}
+.transaction{padding:13px 0;border-bottom:1px solid #eee}
+.in{color:#087c45}.out{color:#d34a4a}
+h3{margin-top:5px}
 </style>
 </head>
 <body>
-<div class="box">
-<h2>💰 M-Pesa Tracker</h2>
-<p><b>Paste M-Pesa SMS here:</b></p>
-<textarea id="sms" rows="3" placeholder="Paste your M-Pesa SMS here... e.g. Ksh500 sent to Mama Mboga"></textarea>
-<button onclick="parseSMS()">🔍 Read SMS & Fill Below</button>
-
-<p><b>Or type manually:</b></p>
-<input id="name" placeholder="Who / What for? e.g. Mama Mboga">
-<input id="amount" type="number" placeholder="Amount e.g. 500">
-<input id="code" placeholder="M-Pesa Code (optional)">
-<button onclick="addTx()">+ Add Transaction</button>
-
-<h3>Total: Ksh <span id="total">0</span></h3>
-<div id="list"></div>
-<button onclick="clearAll()" style="background:#999">Clear All</button>
+<header>
+<h2>M-PESA TRACKER</h2>
+<p>Your money. Your records. Your control.</p>
+</header>
+<main>
+<div class="card balance">
+<div>Current tracked balance</div>
+<div class="amount" id="balance">KSh 0.00</div>
+<div class="small" style="color:white">Based on recorded transactions</div>
 </div>
 
+<div class="card">
+<b>Financial overview</b>
+<select id="period" onchange="render()">
+<option value="today">Today</option>
+<option value="week">This week</option>
+<option value="month">This month</option>
+<option value="year">This year</option>
+<option value="all">All time</option>
+</select>
+<div class="grid">
+<div><div class="small">Money received</div><div class="value in" id="received">KSh 0</div></div>
+<div><div class="small">Money sent</div><div class="value out" id="sent">KSh 0</div></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Add transaction</h3>
+<input id="amount" type="number" placeholder="Amount in KSh">
+<select id="type">
+<option value="in">Money received</option>
+<option value="out">Money sent</option>
+</select>
+<input id="person" placeholder="Person or business name">
+<input id="phone" placeholder="Phone number (optional)">
+<input id="reference" placeholder="M-Pesa transaction code (optional)">
+<input id="date" type="datetime-local">
+<button onclick="addTransaction()">Save transaction</button>
+</div>
+
+<div class="card">
+<h3>Transaction history</h3>
+<div id="history">No transactions recorded yet.</div>
+</div>
+</main>
+
 <script>
-let txs = JSON.parse(localStorage.getItem('mpesa')||'[]');
-function save(){ localStorage.setItem('mpesa', JSON.stringify(txs)); render(); }
+let transactions=JSON.parse(localStorage.getItem("mpesaRecords")||"[]");
+
+function addTransaction(){
+let amount=Number(document.getElementById("amount").value);
+let person=document.getElementById("person").value.trim();
+let date=document.getElementById("date").value;
+if(!amount||amount<=0||!date){
+alert("Enter a valid amount and date");
+return;
+}
+transactions.unshift({
+amount,
+type:document.getElementById("type").value,
+person:person||"Unknown",
+phone:document.getElementById("phone").value,
+reference:document.getElementById("reference").value,
+date:new Date(date).toISOString()
+});
+localStorage.setItem("mpesaRecords",JSON.stringify(transactions));
+["amount","person","phone","reference"].forEach(id=>document.getElementById(id).value="");
+render();
+}
+
 function render(){
-  let t=0; let h='';
-  txs.forEach((x,i)=>{
-    t+=Number(x.amount);
-    h+=`<div class="item"><div><b>${x.name}</b><br><span class="small">${x.code||''} • ${x.date}</span></div><div><b>Ksh ${x.amount}</b><br><button class="del" onclick="delTx(${i})">X</button></div></div>`;
-  });
-  document.getElementById('list').innerHTML=h;
-  document.getElementById('total').innerText=t.toLocaleString();
+let now=new Date();
+let period=document.getElementById("period").value;
+let filtered=transactions.filter(t=>{
+let d=new Date(t.date);
+if(period==="today")return d.toDateString()===now.toDateString();
+if(period==="week"){
+let start=new Date(now);
+start.setDate(now.getDate()-((now.getDay()+6)%7));
+start.setHours(0,0,0,0);
+return d>=start;
 }
-function addTx(){
-  let name=document.getElementById('name').value.trim();
-  let amount=document.getElementById('amount').value;
-  let code=document.getElementById('code').value.trim().toUpperCase();
-  if(!name||!amount){alert('Fill name and amount');return;}
-  txs.unshift({name,amount,code,date:new Date().toLocaleDateString()});
-  document.getElementById('name').value='';document.getElementById('amount').value='';document.getElementById('code').value='';
-  save();
-}
-function delTx(i){ txs.splice(i,1); save(); }
-function clearAll(){ if(confirm('Clear all?')){txs=[];save();} }
-function parseSMS(){
-  let sms=document.getElementById('sms').value;
-  if(!sms){alert('Paste SMS first');return;}
-  // Amount: Ksh500.00 or KES 500
-  let amt = sms.match(/(?:Ksh|KES)\s?([\d,]+\.?\d*)/i);
-  // Code: 10-char code at start like QK123ABC45
-  let code = sms.match(/\b([A-Z0-9]{10})\b/);
-  // Name: sent to X, received from X, paid to X, to X
-  let nameMatch = sms.match(/(?:sent to|received from|paid to|to)\s+([A-Za-z0-9 .'-]+?)(?:\s+on\s|\s+\d|\.|,|$)/i);
-  if(amt) document.getElementById('amount').value = amt[1].replace(/,/g,'');
-  if(code) document.getElementById('code').value = code[1];
-  if(nameMatch) document.getElementById('name').value = nameMatch[1].trim();
-  else document.getElementById('name').value = 'M-Pesa';
-  alert('Found it! Check below and tap Add Transaction');
-  document.getElementById('sms').value='';
+if(period==="month")return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+if(period==="year")return d.getFullYear()===now.getFullYear();
+return true;
+});
+let received=filtered.filter(t=>t.type==="in").reduce((s,t)=>s+t.amount,0);
+let sent=filtered.filter(t=>t.type==="out").reduce((s,t)=>s+t.amount,0);
+let totalIn=transactions.filter(t=>t.type==="in").reduce((s,t)=>s+t.amount,0);
+let totalOut=transactions.filter(t=>t.type==="out").reduce((s,t)=>s+t.amount,0);
+document.getElementById("received").textContent="KSh "+received.toLocaleString();
+document.getElementById("sent").textContent="KSh "+sent.toLocaleString();
+document.getElementById("balance").textContent="KSh "+(totalIn-totalOut).toLocaleString();
+document.getElementById("history").innerHTML=filtered.length?filtered.map(t=>`
+<div class="transaction">
+<b>${t.person}</b>
+<div class="${t.type}">${t.type==="in"?"+":"-"} KSh ${t.amount.toLocaleString()}</div>
+<div class="small">${new Date(t.date).toLocaleString()}</div>
+<div class="small">${t.reference||""} ${t.phone||""}</div>
+</div>`).join(""):"No transactions for this period.";
 }
 render();
-</script>
-</body>
-</html>
-<style>
-body{font-family:sans-serif;padding:15px;background:#f2f2f2}
-h1{color:#4CAF50}
-.card{background:white;padding:15px;border-radius:10px;margin-bottom:10px}
-input,button{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
-button{background:#4CAF50;color:white;border:none;font-weight:bold}
-</style>
-</head>
-<body>
-<h1>M-Pesa Tracker</h1>
-<div class="card">
-<h3 id="total">Total: Ksh 0</h3>
-<input id="name" placeholder="e.g. Sent to Mama Mboga">
-<input id="amount" type="number" placeholder="Amount e.g. 500">
-<button onclick="add()">Add Transaction</button>
-</div>
-<div id="list"></div>
-<script>
-let total=0;
-function add(){
-let n=document.getElementById('name').value;
-let a=Number(document.getElementById('amount').value);
-if(!n||!a) return alert('Fill both');
-total+=a;
-document.getElementById('total').innerText='Total: Ksh '+total;
-let d=document.createElement('div');
-d.className='card'; d.innerText=n+' - Ksh '+a;
-document.getElementById('list').prepend(d);
-document.getElementById('name').value='';
-document.getElementById('amount').value='';
-}
 </script>
 </body>
 </html>
